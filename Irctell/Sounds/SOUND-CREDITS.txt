@@ -1,0 +1,63 @@
+Sounds played when messages are read aloud. Each was cut to a quarter or half
+of a second -- the loudest part of a laugh or sigh, or a whole short word --
+faded in and out, evened in loudness and converted to AAC.
+
+LAUGHS AND SIGHS for lol, rofl, :) and :(
+
+From BigSoundBank (https://bigsoundbank.com), by Joseph Sardin, CC0:
+  reaction-giggle-1   #0980 Laughing Boy of 16 Months
+  reaction-giggle-2   #1660 Laughter of Children
+  reaction-laugh-1    #2092 Delirious Laughter #2
+  reaction-bigLaugh-1 #0489 Strident Laughter
+  reaction-sad-1      #1404 Sigh by the Nose
+  reaction-sad-2      #1405 Sigh by the Mouth
+
+From Wikimedia Commons (https://commons.wikimedia.org):
+  reaction-giggle-3   "Smiles and giggly.webm", by Flame, not lame, CC0
+  reaction-laugh-2    "Short clip of girl laughing.wav", by lmbubec, CC0
+  reaction-laugh-3    "72842 lonemonk approx-800-laugh-1.wav", by lonemonk
+                      (freesound.org), CC BY 3.0
+                      https://creativecommons.org/licenses/by/3.0/
+  reaction-bigLaugh-2 "72843 lonemonk approx-800-laughter-only-1.wav", by
+                      lonemonk (freesound.org), CC BY 3.0
+                      https://creativecommons.org/licenses/by/3.0/
+
+SOUNDS BEFORE AND AFTER LINES: hmm, mhm, huh, ooh, wow, aww, ahh, ugh, sigh,
+groan, tsk, pfft, ouch
+
+From Wikimedia Commons; the "LL-" recordings are from Lingua Libre
+(https://lingualibre.org), naming their speaker:
+  interjection-ahh-1     "LL-Q1860 (eng)-Grendelkhan-ahh.wav", by Grendelkhan, CC0
+  interjection-aww-1     "LL-Q1860 (eng)-StalJosA-Aww (sad).wav", by StalJosA, CC0
+  interjection-groan-1   "Grunt of pain.ogg", by gregoryweir, Public domain
+  interjection-hmm-1     "En-us-hmm.ogg", by Dvortygirl, Public domain
+  interjection-hmm-2     "Lb-mmm.ogg", by Lëtzebuerger Online Dictionnaire, CC0
+  interjection-hmm-3     "LL-Q1860 (eng)-Grendelkhan-hmm.wav", by Grendelkhan, CC0
+  interjection-hmm-4     "LL-Q1860 (eng)-Wodencafe-hmm.wav", by Wodencafe, CC0
+  interjection-hmm-5     "Hm and sigh.ogg", by ezwa, Public domain
+  interjection-huh-1     "LL-Q1860 (eng)-Grendelkhan-huh.wav", by Grendelkhan, CC0
+  interjection-huh-2     "LL-Q1860 (eng)-Wodencafe-huh.wav", by Wodencafe, CC0
+  interjection-mhm-1     "LL-Q1860 (eng)-Wodencafe-mm-hmm.wav", by Wodencafe, CC0
+  interjection-mhm-2     "LL-Q1860 (eng)-Wodencafe-uh-huh.wav", by Wodencafe, CC0
+  interjection-ooh-1     "LL-Q1860 (eng)-Grendelkhan-ooh.wav", by Grendelkhan, CC0
+  interjection-ooh-2     "LL-Q1860 (eng)-Wodencafe-ooh.wav", by Wodencafe, CC0
+  interjection-ouch-1    "LL-Q1860 (eng)-Grendelkhan-ouch.wav", by Grendelkhan, CC0
+  interjection-ouch-2    "LL-Q37300-AntonAB4435-ouch.wav", by AntonAB4435, CC0
+  interjection-pfft-1    "LL-Q150 (fra)-Jules78120-pfft.wav", by Jules78120, CC0
+  interjection-sigh-1    "Four sighs.ogg", by ezwa, Public domain
+  interjection-sigh-2    "Four sighs.ogg", by ezwa, Public domain
+  interjection-sigh-3    "Four sighs.ogg", by ezwa, Public domain
+  interjection-sigh-4    "Hm and sigh.ogg", by ezwa, Public domain
+  interjection-sigh-5    "Three sighs.ogg", by ezwa, Public domain
+  interjection-sigh-6    "Three sighs.ogg", by ezwa, Public domain
+  interjection-sigh-7    "Three sighs.ogg", by ezwa, Public domain
+  interjection-tsk-1     "LL-Q150 (fra)-Mecanautes-tsk.wav", by Mecanautes, CC0
+  interjection-ugh-1     "LL-Q1860 (eng)-Grendelkhan-ugh.wav", by Grendelkhan, CC0
+  interjection-ugh-2     "LL-Q1860 (eng)-Wodencafe-ugh.wav", by Wodencafe, CC0
+  interjection-wow-1     "LL-Q1860 (eng)-Baswameenakshi-wow.wav", by Baswameenakshi, CC0
+  interjection-wow-2     "LL-Q1860 (eng)-Grendelkhan-wow.wav", by Grendelkhan, CC0
+  interjection-wow-3     "LL-Q1860 (eng)-Wodencafe-wow.wav", by Wodencafe, CC0
+
+CC0 and public domain sounds may be used for anything, without asking or
+naming anyone; they are named here as thanks. The two CC BY 3.0 laughs
+require the credit above wherever Irctell is distributed.

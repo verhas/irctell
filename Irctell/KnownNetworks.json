@@ -1,0 +1,296 @@
+[
+ {
+  "name": "2600net",
+  "host": "irc.2600.net",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "Abjects",
+  "host": "irc.abjects.net",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "AfterNET",
+  "host": "irc.afternet.org",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "DALnet",
+  "host": "irc.dal.net",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "DarkMyst",
+  "host": "irc.darkmyst.org",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "DATA.LT",
+  "host": "irc.data.lt",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "DigitalIRC",
+  "host": "irc.digitalirc.org",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "EFnet",
+  "host": "irc.efnet.org",
+  "port": 6667,
+  "tls": false
+ },
+ {
+  "name": "Ergo Testnet",
+  "host": "testnet.ergo.chat",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "EsperNet",
+  "host": "irc.esper.net",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "euIRC",
+  "host": "irc.euirc.net",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "EuropNet",
+  "host": "irc.europnet.org",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "freenode",
+  "host": "irc.freenode.net",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "FurNet",
+  "host": "irc.furnet.org",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "GameSurge",
+  "host": "irc.gamesurge.net",
+  "port": 6667,
+  "tls": false
+ },
+ {
+  "name": "GeekShed",
+  "host": "irc.geekshed.net",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "GIMPNet",
+  "host": "irc.gimp.org",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "hackint",
+  "host": "irc.hackint.org",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "HybridIRC",
+  "host": "irc.hybridirc.com",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "IRC4Fun",
+  "host": "irc.irc4fun.net",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "IRCnet",
+  "host": "open.ircnet.net",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "IRCNow",
+  "host": "irc.ircnow.org",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "IRCWorld",
+  "host": "irc.ircworld.org",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "Koach",
+  "host": "irc.koach.com",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "Libera.Chat",
+  "host": "irc.libera.chat",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "LinkNet",
+  "host": "irc.link-net.org",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "NewNet",
+  "host": "irc.newnet.net",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "OFTC",
+  "host": "irc.oftc.net",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "PIRC.pl",
+  "host": "irc.pirc.pl",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "PTnet",
+  "host": "irc.ptnet.org",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "QuakeNet",
+  "host": "irc.quakenet.org",
+  "port": 6667,
+  "tls": false
+ },
+ {
+  "name": "RetroNode",
+  "host": "irc.retronode.org",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "Rezosup",
+  "host": "irc.rezosup.org",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "Rizon",
+  "host": "irc.rizon.net",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "Scuttled",
+  "host": "irc.scuttled.net",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "Serenity-IRC",
+  "host": "irc.serenity-irc.net",
+  "port": 6667,
+  "tls": false
+ },
+ {
+  "name": "SimosNap",
+  "host": "irc.simosnap.com",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "SlashNET",
+  "host": "irc.slashnet.org",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "Snoonet",
+  "host": "irc.snoonet.org",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "SorceryNet",
+  "host": "irc.sorcery.net",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "SwiftIRC",
+  "host": "irc.swiftirc.net",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "SynIRC",
+  "host": "irc.synirc.net",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "Techtronix",
+  "host": "irc.techtronix.net",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "tilde.chat",
+  "host": "irc.tilde.chat",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "Twitch",
+  "host": "irc.chat.twitch.tv",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "Undernet",
+  "host": "irc.undernet.org",
+  "port": 6667,
+  "tls": false
+ },
+ {
+  "name": "UnrealIRCd",
+  "host": "irc.unrealircd.org",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "Xertion",
+  "host": "irc.xertion.org",
+  "port": 6697,
+  "tls": true
+ },
+ {
+  "name": "ZEnet",
+  "host": "irc.zenet.org",
+  "port": 6697,
+  "tls": true
+ }
+]

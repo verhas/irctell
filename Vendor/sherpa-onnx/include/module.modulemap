@@ -1,0 +1,6 @@
+// sherpa-onnx's C API, for Swift: `import SherpaOnnx`. The static libraries
+// it is in are fetched by build.sh into ../lib.
+module SherpaOnnx {
+    header "c-api.h"
+    export *
+}
