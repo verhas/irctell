@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101219">
+  <meta name="description" content="Irctell is a native macOS IRC client for conversations that keep going: multiple networks, local history, scripting, notifications, and optional voice.">
+  <title>Irctell — IRC, at home on your Mac</title>
+  <link rel="icon" type="image/png" href="/irctell/assets/icon.png">
+  <style>
+    :root { color-scheme: dark; --bg:#101219; --panel:#181b25; --ink:#f4f1ea; --muted:#aaaab5; --lime:#d5f06f; --violet:#a99bff; --line:rgba(255,255,255,.12); }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    a { color:inherit; }
+    .wrap { width:min(1120px,calc(100% - 48px)); margin:auto; }
+    header { height:76px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); }
+    .brand { display:flex; align-items:center; gap:11px; text-decoration:none; font-weight:700; letter-spacing:-.03em; }
+    .brand img { width:36px; height:36px; border-radius:10px; }
+    nav { display:flex; align-items:center; gap:26px; font-size:14px; color:var(--muted); }
+    nav a { text-decoration:none; } nav a:hover { color:var(--ink); }
+    .nav-cta { color:var(--bg); background:var(--lime); padding:9px 15px; border-radius:999px; font-weight:700; }
+    .hero { min-height:610px; display:grid; grid-template-columns:1.05fr .95fr; align-items:center; gap:50px; padding:70px 0 85px; }
+    .eyebrow { color:var(--lime); text-transform:uppercase; letter-spacing:.16em; font-size:12px; font-weight:700; }
+    h1 { font-size:clamp(48px,7vw,82px); line-height:.99; letter-spacing:-.075em; margin:20px 0 24px; max-width:660px; }
+    h1 span { color:var(--lime); }
+    .intro { color:var(--muted); font-size:19px; max-width:540px; margin:0 0 30px; }
+    .actions { display:flex; gap:12px; flex-wrap:wrap; }
+    .button { display:inline-flex; align-items:center; justify-content:center; border-radius:999px; padding:13px 20px; font-weight:700; text-decoration:none; transition:transform .18s, background .18s; }
+    .button:hover { transform:translateY(-2px); }
+    .primary { background:var(--lime); color:#171a12; }
+    .secondary { border:1px solid var(--line); color:var(--ink); }
+    .meta { color:#777985; font-size:13px; margin-top:18px; }
+    .stage { position:relative; padding:25px 0 25px 20px; }
+    .halo { position:absolute; width:380px; height:380px; border-radius:50%; top:50%; left:50%; transform:translate(-45%,-50%); background:radial-gradient(circle,rgba(169,155,255,.27),rgba(169,155,255,0) 68%); filter:blur(12px); }
+    .window { position:relative; overflow:hidden; border:1px solid rgba(255,255,255,.16); border-radius:18px; background:#1a1d27; box-shadow:0 35px 100px rgba(0,0,0,.48); transform:rotate(1.7deg); }
+    .chrome { height:42px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:7px; padding:0 15px; color:#8b8d98; font-size:12px; }
+    .dot { width:8px; height:8px; border-radius:50%; background:#60616b; } .dot:first-child { background:#fa8077; } .dot:nth-child(2) { background:#edc45d; } .dot:nth-child(3) { background:#83c77c; }
+    .appbody { display:grid; grid-template-columns:130px 1fr; min-height:320px; }
+    .sidebar { padding:16px 11px; background:#151720; border-right:1px solid var(--line); font-size:11px; color:#9d9eaa; }
+    .net { padding:7px 8px; border-radius:7px; margin-bottom:4px; } .net.active { background:#292b3a; color:var(--ink); }
+    .net b { color:var(--violet); font-weight:600; margin-right:4px; }
+    .chats { padding:20px 18px; font-size:12px; }
+    .chat-title { display:flex; justify-content:space-between; font-size:13px; font-weight:700; padding-bottom:14px; border-bottom:1px solid var(--line); }
+    .chat-title small { color:var(--muted); font-weight:400; }
+    .message { margin-top:15px; color:#d2d0d9; } .message strong { color:var(--lime); font-weight:600; } .message .purple { color:#c2b5ff; }
+    .input { margin-top:28px; border:1px solid var(--line); border-radius:8px; padding:10px; color:#737580; }
+    .float { position:absolute; background:#20232e; border:1px solid var(--line); border-radius:12px; padding:13px 16px; box-shadow:0 15px 45px rgba(0,0,0,.35); font-size:12px; }
+    .float b { display:block; color:var(--lime); font-size:11px; letter-spacing:.06em; margin-bottom:3px; }
+    .float.one { right:-16px; top:7px; transform:rotate(-3deg); } .float.two { left:-10px; bottom:8px; transform:rotate(-2deg); }
+    .strip { border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:22px 0; color:var(--muted); }
+    .strip .wrap { display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; font-size:13px; }
+    .strip strong { color:var(--ink); font-weight:600; }
+    section { padding:100px 0; }
+    .section-head { max-width:650px; margin-bottom:40px; }
+    .section-head h2 { font-size:clamp(34px,5vw,52px); letter-spacing:-.06em; line-height:1.05; margin:12px 0; }
+    .section-head p { color:var(--muted); font-size:17px; margin:0; }
+    .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+    .card { min-height:210px; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:24px; }
+    .icon { color:var(--lime); font-size:21px; }
+    .card h3 { font-size:18px; margin:16px 0 7px; letter-spacing:-.025em; }
+    .card p { color:var(--muted); font-size:14px; margin:0; }
+    .privacy { display:grid; grid-template-columns:.7fr 1.3fr; gap:70px; align-items:start; border-top:1px solid var(--line); }
+    .privacy h2 { font-size:42px; line-height:1.05; letter-spacing:-.06em; margin:12px 0; }
+    .privacy p { color:var(--muted); margin:0 0 15px; }
+    .privacy-list { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .privacy-item { padding:18px; background:var(--panel); border-radius:12px; border:1px solid var(--line); }
+    .privacy-item strong { display:block; margin-bottom:5px; } .privacy-item span { color:var(--muted); font-size:13px; }
+    .closing { text-align:center; padding:76px 25px; border:1px solid var(--line); border-radius:20px; background:radial-gradient(ellipse at 50% 0,rgba(169,155,255,.16),transparent 65%),var(--panel); }
+    .closing h2 { font-size:clamp(34px,5vw,54px); letter-spacing:-.06em; line-height:1.05; margin:12px 0; }
+    .closing p { color:var(--muted); margin:0 auto 24px; max-width:520px; }
+    footer { padding:30px 0 38px; color:#81838d; font-size:13px; }
+    footer .wrap { display:flex; justify-content:space-between; gap:20px; flex-wrap:wrap; }
+    footer a { color:#b5b5be; text-decoration:none; margin-left:18px; }
+    @media (max-width:800px) { .hero { grid-template-columns:1fr; gap:15px; padding:68px 0 50px; } .stage { max-width:580px; width:100%; margin:10px auto 0; } .grid { grid-template-columns:repeat(2,1fr); } .privacy { grid-template-columns:1fr; gap:25px; } }
+    @media (max-width:560px) { .wrap { width:min(100% - 32px,1120px); } header { height:66px; } nav { gap:13px; font-size:12px; } nav .optional { display:none; } .nav-cta { padding:8px 11px; } .hero { min-height:auto; } .intro { font-size:17px; } .appbody { grid-template-columns:95px 1fr; min-height:280px; } .sidebar { padding:12px 7px; } .chats { padding:15px 12px; } .float.one { right:-4px; } .float.two { left:-2px; } .grid,.privacy-list { grid-template-columns:1fr; } section { padding:72px 0; } .strip .wrap { gap:9px 18px; } }
+    @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } *,*::before,*::after { transition:none !important; } }
+  </style>
+</head>
+<body>
+  <header class="wrap">
+    <a class="brand" href="/irctell/" aria-label="Irctell home"><img src="/irctell/assets/icon.png" alt=""><span>irctell</span></a>
+    <nav aria-label="Main navigation">
+      <a class="optional" href="#features">Features</a>
+      <a class="optional" href="#privacy">Privacy</a>
+      <a href="https://github.com/verhas/irctell">Source</a>
+      <a class="nav-cta" href="https://github.com/verhas/irctell/releases/latest">Get Irctell ↗</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="wrap hero">
+      <div>
+        <div class="eyebrow">A native IRC client for macOS</div>
+        <h1>IRC, at home<br>on your <span>Mac.</span></h1>
+        <p class="intro">The conversations you care about, gathered in one calm, capable place. Connect to your networks, keep your history close, and make the client your own.</p>
+        <div class="actions">
+          <a class="button primary" href="https://github.com/verhas/irctell/releases/latest">Download for macOS <span aria-hidden="true">&nbsp;↗</span></a>
+          <a class="button secondary" href="https://github.com/verhas/irctell">Explore the source</a>
+        </div>
+        <div class="meta">macOS 26 or later · Source available on GitHub</div>
+      </div>
+      <div class="stage" aria-label="Illustration of the Irctell interface">
+        <div class="halo"></div>
+        <div class="window">
+          <div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span style="margin-left:8px">Irctell</span></div>
+          <div class="appbody">
+            <aside class="sidebar"><div class="net active"><b>●</b> Libera.Chat</div><div class="net">　# macos</div><div class="net">　# swift</div><div class="net">　# openscad</div><div class="net" style="margin-top:14px"><b>●</b> OFTC</div><div class="net">　# debian</div><div class="net" style="margin-top:14px">Mentions <span style="color:#d5f06f">　2</span></div></aside>
+            <div class="chats"><div class="chat-title"><span># macos</span><small>34 members</small></div><div class="message"><strong>mira</strong> &nbsp;anyone tried the new build?</div><div class="message"><span class="purple">you</span> &nbsp;just installed it — feels really quick</div><div class="message"><strong>river</strong> &nbsp;the channel history is searchable too</div><div class="message"><strong>mira</strong> &nbsp;nice, that's handy ✨</div><div class="input">Write a message…</div></div>
+          </div>
+        </div>
+        <div class="float one"><b>LOCAL HISTORY</b>Find the conversation again.</div>
+        <div class="float two"><b>YOUR NETWORKS</b>One window. All your channels.</div>
+      </div>
+    </div>
+
+    <div class="strip"><div class="wrap"><span><strong>Multi-network</strong> tabs</span><span><strong>Searchable</strong> local history</span><span><strong>Scriptable</strong> by design</span><span><strong>Optional</strong> voice and AI</span></div></div>
+
+    <section id="features" class="wrap">
+      <div class="section-head"><div class="eyebrow">A little more than chat</div><h2>Everything in its<br>right place.</h2><p>Irctell keeps the familiar rhythm of IRC and adds the details that make a long-running conversation easier to follow.</p></div>
+      <div class="grid">
+        <article class="card"><div class="icon">◉</div><h3>Networks, together</h3><p>Keep multiple networks in a single window. Switch between channels and private chats without juggling a stack of windows.</p></article>
+        <article class="card"><div class="icon">⌕</div><h3>History that helps</h3><p>Search conversations, revisit private chats, and keep track of mentions and nicks in a local log.</p></article>
+        <article class="card"><div class="icon">⌘</div><h3>Your own automation</h3><p>Connect scripts to IRC events using simple text or structured JSON Lines, with controls for what each script can do.</p></article>
+        <article class="card"><div class="icon">♫</div><h3>Listen your way</h3><p>Have conversations read aloud. Choose system voices or download optional natural voices, then tune the voice for each nick.</p></article>
+        <article class="card"><div class="icon">✦</div><h3>Replies, on your Mac</h3><p>Optional Apple Intelligence suggestions stay on-device. They're yours to review, edit, and send when you're ready.</p></article>
+        <article class="card"><div class="icon">⌁</div><h3>Flexible connections</h3><p>Use TLS and SASL, or route a connection through Tor, SOCKS, or SSH to fit your setup.</p></article>
+      </div>
+    </section>
+
+    <section id="privacy" class="wrap privacy">
+      <div><div class="eyebrow">Your conversations stay yours</div><h2>Local by<br>default.</h2><p>Your settings and message history live on your Mac. Irctell connects directly to the IRC networks you choose.</p><a href="https://github.com/verhas/irctell#privacy">Read the privacy notes ↗</a></div>
+      <div class="privacy-list">
+        <div class="privacy-item"><strong>Local history</strong><span>Conversation logs and network settings are stored on your Mac.</span></div>
+        <div class="privacy-item"><strong>On-device suggestions</strong><span>Reply suggestions use Apple Intelligence on your Mac.</span></div>
+        <div class="privacy-item"><strong>Optional downloads</strong><span>Voice models and pictures are fetched only when you choose those features.</span></div>
+        <div class="privacy-item"><strong>You choose the route</strong><span>Connect directly or configure a proxy, Tor, or SSH tunnel.</span></div>
+      </div>
+    </section>
+
+    <section class="wrap" style="padding-top:15px;padding-bottom:90px">
+      <div class="closing"><div class="eyebrow">Ready when you are</div><h2>Make yourself at home.</h2><p>Take Irctell for a spin, browse the source, or see what's changed in the latest release.</p><div class="actions" style="justify-content:center"><a class="button primary" href="https://github.com/verhas/irctell/releases/latest">Get the latest release ↗</a><a class="button secondary" href="https://github.com/verhas/irctell">View on GitHub ↗</a></div><div class="meta">macOS 26 or later</div></div>
+    </section>
+  </main>
+
+  <footer><div class="wrap"><span>© <span id="year">2026</span> Irctell</span><span><a href="https://github.com/verhas/irctell">GitHub</a><a href="https://github.com/verhas/irctell/blob/main/SCRIPTING.md">Scripting guide</a><a href="https://github.com/verhas/irctell/issues">Support</a></span></div></footer>
+  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+</body>
+</html>
