@@ -58,6 +58,10 @@ final class SettingsStore {
         Binding(get: { self.bool(forKey: key, default: fallback) }, set: { self.set($0, forKey: key) })
     }
 
+    func binding(_ key: String, default fallback: Int) -> Binding<Int> {
+        Binding(get: { self.object(forKey: key) as? Int ?? fallback }, set: { self.set($0, forKey: key) })
+    }
+
     private func save() {
         do {
             try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(),

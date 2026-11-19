@@ -277,6 +277,13 @@ final class AppModel {
         rememberOpenTabs()
     }
 
+    /// Closes the channel or private chat in front; the server window and
+    /// Memos stay.
+    func closeSelectedConversation() {
+        guard let session = selectedSession, let buffer = session.selectedBuffer else { return }
+        session.close(buffer)
+    }
+
     /// The private chats with messages not seen yet, on every network, the
     /// one waiting longest first. Ignored nicks do not count.
     var unseenPrivateChats: [(session: NetworkSession, buffer: ChatBuffer)] {

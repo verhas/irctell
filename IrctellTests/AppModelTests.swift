@@ -521,8 +521,8 @@ final class InputFocusTests: XCTestCase {
         try await waitUntil { (window.firstResponder as? NSTextView)?.string == "h" }
     }
 
-    /// A long line typed stays inside the field, left of the palette and
-    /// emoji buttons.
+    /// A long text typed stays inside the field, left of the palette and
+    /// emoji buttons, and the field grows.
     func testALongLineStaysInsideTheField() async throws {
         let session = NetworkSession(config: NetworkConfig(name: "T", host: "h", nick: "me"))
         let channel = session.openBuffer(named: "#alpha", kind: .channel)
@@ -545,28 +545,19 @@ final class InputFocusTests: XCTestCase {
         XCTAssertTrue(window.makeFirstResponder(transcript))
         transcript.keyDown(with: try key("x", code: 7))
         try await waitUntil { (window.firstResponder as? NSTextView)?.string == "x" }
-        let editor = try XCTUnwrap(window.firstResponder as? NSTextView)
-        let field = try XCTUnwrap(editor.delegate as? NSTextField)
-        func frames(_ label: String) {
-            let fieldFrame = field.convert(field.bounds, to: nil)
-            let clip = editor.enclosingScrollView ?? editor.superview
-            let visible = clip.map { $0.convert($0.bounds, to: nil) } ?? .zero
-            print("FIELD \(label): field \(fieldFrame) editor-visible \(visible) window \(window.frame.width)")
-        }
-        frames("short")
-        for _ in 0..<12 { editor.insertText("a rather long message typed in ", replacementRange: editor.selectedRange()) }
-        try await Task.sleep(for: .milliseconds(300))
+        let editor = try XCTUnwrap(window.firstResponder as? MessageTextView)
+        let field = try XCTUnwrap(editor.enclosingScrollView)
+        let shortHeight = field.frame.height
+        for _ in 0..<70 { editor.insertText("a rather long message typed in ", replacementRange: editor.selectedRange()) }
+        try await waitUntil { field.frame.height > shortHeight }
         window.layoutIfNeeded()
-        frames("long")
         if let out = ProcessInfo.processInfo.environment["IRCTELL_SNAPSHOT"], let view = window.contentView,
            let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
             view.cacheDisplay(in: view.bounds, to: rep)
             try rep.representation(using: .png, properties: [:])?.write(to: URL(filePath: out))
         }
-        let fieldFrame = field.convert(field.bounds, to: nil)
-        let visible = (editor.enclosingScrollView ?? editor.superview).map { $0.convert($0.bounds, to: nil) } ?? .zero
-        XCTAssertLessThanOrEqual(fieldFrame.maxX, window.frame.width - 50, "room left for the two buttons")
-        XCTAssertLessThanOrEqual(visible.maxX, fieldFrame.maxX + 3, "the text drawn within the field")
+        XCTAssertLessThanOrEqual(field.convert(field.bounds, to: nil).maxX, window.frame.width - 75,
+                                 "room left for the three buttons")
     }
 
     /// ↑ brings back what was sent before, plain arrows having the

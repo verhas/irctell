@@ -67,6 +67,13 @@ struct IRCTimeouts: Sendable, Hashable {
     /// First wait before reconnecting; it doubles per failed attempt.
     var reconnectInitial: Duration = .seconds(2)
     var reconnectMaximum: Duration = .seconds(300)
+    /// Reconnects tried in a row before giving up. With the waits above, ten
+    /// of them span about 18 minutes.
+    var reconnectLimit = 10
+    /// How long a login must last to count as a working connection and start
+    /// the reconnects afresh. Without it, a server that accepts the login and
+    /// drops the client at once would be retried at the shortest wait forever.
+    var reconnectResetAfter: Duration = .seconds(60)
     /// Outgoing flood control: servers disconnect a client that sends too
     /// fast. A burst of five lines, then one every two seconds.
     var floodLineInterval: Duration = .seconds(2)

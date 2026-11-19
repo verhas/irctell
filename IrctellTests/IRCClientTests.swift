@@ -229,6 +229,81 @@ final class IRCClientTests: XCTestCase {
         let delays = await [1, 2, 3, 5, 6, 40].asyncMap { await client.reconnectDelay(attempt: $0) }
         XCTAssertEqual(delays, [.seconds(2), .seconds(4), .seconds(8), .seconds(32), .seconds(60), .seconds(60)])
     }
+
+    /// The attempts reported when the client gives up; nil if it does not.
+    private func attemptsWhenGivingUp(_ client: IRCClient) async -> Int? {
+        await withTaskGroup(of: Int?.self) { group in
+            group.addTask {
+                for await event in client.events {
+                    if case .gaveUpReconnecting(let attempts) = event { return attempts }
+                }
+                return nil
+            }
+            group.addTask { try? await Task.sleep(for: .seconds(2)); return nil }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+    }
+
+    func testGivesUpAfterTheLimitAndCanBeStartedAgain() async {
+        let attempts = Counter()
+        var config = IRCServerConfig(host: "h", nick: "tester")
+        config.timeouts.reconnectInitial = .milliseconds(1)
+        config.timeouts.reconnectLimit = 3
+        let client = IRCClient(config: config, makeTransport: { _ in FakeTransport() })
+        await client.setPreparation {
+            _ = attempts.increment()
+            throw URLError(.cannotConnectToHost)
+        }
+
+        await client.connect()
+        let reported = await attemptsWhenGivingUp(client)
+        XCTAssertEqual(reported, 3)
+        XCTAssertEqual(attempts.value, 4, "the first try and three reconnects")
+        await waitForState(client, .disconnected)
+
+        await client.connect()
+        let reportedAgain = await attemptsWhenGivingUp(client)
+        XCTAssertEqual(reportedAgain, 3, "a new connect gets all its attempts back")
+        XCTAssertEqual(attempts.value, 8)
+    }
+
+    func testLoginThatIsDroppedAtOnceStillUsesUpTheAttempts() async {
+        let attempts = Counter()
+        var config = IRCServerConfig(host: "h", nick: "tester")
+        config.timeouts.reconnectInitial = .milliseconds(1)
+        config.timeouts.reconnectLimit = 2
+        let client = IRCClient(config: config, makeTransport: { _ in
+            _ = attempts.increment()
+            let transport = FakeTransport()
+            transport.serverSends(":srv 001 tester :Welcome", "ERROR :Banned")
+            return transport
+        })
+
+        await client.connect()
+        let reported = await attemptsWhenGivingUp(client)
+        XCTAssertEqual(reported, 2)
+        XCTAssertEqual(attempts.value, 3)
+    }
+
+    func testLoginThatLastsStartsTheAttemptsAfresh() async {
+        let dropped = [FakeTransport(), FakeTransport()]
+        for transport in dropped {
+            transport.serverSends(":srv 001 tester :Welcome", "ERROR :Restarting")
+        }
+        let last = FakeTransport()
+        let transports = LockedQueue(dropped + [last])
+        var config = IRCServerConfig(host: "h", nick: "tester")
+        config.timeouts.reconnectInitial = .milliseconds(1)
+        config.timeouts.reconnectLimit = 1
+        config.timeouts.reconnectResetAfter = .zero
+        let client = IRCClient(config: config, makeTransport: { _ in transports.pop() })
+
+        await client.connect()
+        await last.expect("CAP LS 302")
+        await client.disconnect()
+    }
 }
 
 private final class Counter: @unchecked Sendable {

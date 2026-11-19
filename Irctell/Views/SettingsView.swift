@@ -21,6 +21,7 @@ enum GeneralSettingsKeys {
 
 private struct GeneralSettings: View {
     private let settings = SettingsStore.shared
+    private var maxInputLines: Binding<Int> { settings.binding(InputSettings.maxLines, default: InputSettings.defaultMaxLines) }
 
     var body: some View {
         Form {
@@ -28,6 +29,19 @@ private struct GeneralSettings: View {
                 Toggle("Ask before quitting", isOn: settings.binding(GeneralSettingsKeys.confirmQuit, default: true))
             } footer: {
                 Text("Quitting disconnects from every network. Logging out or shutting down the Mac never asks.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                Stepper("Up to \(maxInputLines.wrappedValue) lines", value: maxInputLines, in: InputSettings.lineRange)
+                Picker("Return key", selection: settings.binding(InputSettings.enterKey, default: EnterKeyMode.sends.rawValue)) {
+                    ForEach(EnterKeyMode.allCases) { Text($0.title).tag($0.rawValue) }
+                }
+            } header: {
+                Text("Input field")
+            } footer: {
+                Text("The field grows with what is typed, up to this many lines, and then scrolls. When Return does not send, it starts a new message, as ⌥Return always does; the paper plane sends.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

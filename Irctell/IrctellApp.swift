@@ -3,7 +3,14 @@ import SwiftUI
 @main
 struct IrctellApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @State private var app = AppModel()
+    @State private var app: AppModel
+
+    /// The lock first: the model opens the log and the settings, which a
+    /// second Irctell must not touch.
+    init() {
+        SingleInstance.claimOrQuit()
+        _app = State(initialValue: AppModel())
+    }
 
     var body: some Scene {
         // One window: networks are tabs inside it, not windows of their own.
@@ -87,16 +94,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// for the network tab in front. As menu shortcuts they do not arrive:
     /// the text field and the window's key view loop take Tab and the arrows
     /// first. ⌘← and ⌘→ no longer go to the start and end of the input line
-    /// then; ⌃A and ⌃E still do.
+    /// then; ⌃A and ⌃E still do. ⌘W in the main window closes the conversation
+    /// in front, never the window; held down it closes only one.
     func applicationDidFinishLaunching(_ notification: Notification) {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             // Arrows also carry the function-key flag: only these four count.
             let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
             let switchesNetwork = modifiers == .command && [123, 124].contains(event.keyCode)
-            guard switchesNetwork || (modifiers == .option && [48, 125, 126].contains(event.keyCode)),
+            let closesConversation = modifiers == .command && event.charactersIgnoringModifiers?.lowercased() == "w"
+            guard switchesNetwork || closesConversation || (modifiers == .option && [48, 125, 126].contains(event.keyCode)),
                   event.window?.identifier?.rawValue == IrctellApp.mainWindowID else { return event }
             let keyCode = event.keyCode
+            let isRepeat = event.isARepeat
             let handled = MainActor.assumeIsolated { () -> Bool in
+                if closesConversation {
+                    if !isRepeat { self?.app?.closeSelectedConversation() }
+                    return true
+                }
                 if switchesNetwork {
                     guard let app = self?.app, app.sessions.count > 1 else { return false }
                     app.selectSession(offset: keyCode == 123 ? -1 : 1) // ← or →

@@ -22,8 +22,10 @@ enum IRCClientEvent: Sendable {
     case saslSucceeded(account: String)
     case saslFailed(reason: String)
     /// A connection ended or never came up; a reconnect follows unless the
-    /// user disconnected.
+    /// user disconnected or the attempts ran out.
     case connectionLost(reason: String)
+    /// The reconnects ran out; only the user can start a new connection.
+    case gaveUpReconnecting(attempts: Int)
 }
 
 enum IRCClientError: LocalizedError {
@@ -75,6 +77,8 @@ actor IRCClient {
     private var connectionID = 0
     private var runTask: Task<Void, Never>?
     private var reconnectAttempt = 0
+    /// When the current connection logged in; nil until it does.
+    private var registeredAt: ContinuousClock.Instant?
     private var nickAttempt = 0
     private var negotiatingCapabilities = false
     private var saslInProgress = false
@@ -102,7 +106,8 @@ actor IRCClient {
 
     // MARK: - Public interface
 
-    /// Connects, and keeps reconnecting after failures until `disconnect`.
+    /// Connects, and reconnects after failures until `disconnect` or until
+    /// `reconnectLimit` attempts in a row have failed.
     func connect() {
         guard runTask == nil else { return }
         runTask = Task { await self.run() }
@@ -133,6 +138,8 @@ actor IRCClient {
     // MARK: - Connection lifecycle
 
     private func run() async {
+        reconnectAttempt = 0
+        registeredAt = nil
         while !Task.isCancelled {
             setState(.connecting)
             dropReason = nil
@@ -161,6 +168,14 @@ actor IRCClient {
             transport = nil
             if Task.isCancelled { break }
 
+            if let registeredAt, ContinuousClock.now - registeredAt >= config.timeouts.reconnectResetAfter {
+                reconnectAttempt = 0
+            }
+            registeredAt = nil
+            guard reconnectAttempt < config.timeouts.reconnectLimit else {
+                emit(.gaveUpReconnecting(attempts: reconnectAttempt))
+                break
+            }
             reconnectAttempt += 1
             let delay = reconnectDelay(attempt: reconnectAttempt)
             setState(.waitingToReconnect(attempt: reconnectAttempt, delay: delay))
@@ -278,7 +293,7 @@ actor IRCClient {
         case "001": // RPL_WELCOME
             negotiatingCapabilities = false
             if let assigned = message[param: 0] { nick = assigned }
-            reconnectAttempt = 0
+            registeredAt = .now
             setState(.registered)
             emit(.registered(nick: nick))
 

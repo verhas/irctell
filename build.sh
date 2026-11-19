@@ -144,17 +144,34 @@ build() {
     fi
 }
 
+# Quits the copy built here, and only that one: the installed Irctell has the
+# same process name and must be left alone. Debug builds have a bundle id of
+# their own (dev.verhas.Irctell.debug), so the quit cannot reach it either.
 stop_app() {
-    if pgrep -x "$SCHEME" >/dev/null; then
-        info "Quitting running $SCHEME..."
-        osascript -e "tell application \"$SCHEME\" to quit" >/dev/null 2>&1 || true
+    local app exe id
+    app=$(app_path)
+    exe="$app/Contents/MacOS/$SCHEME"
+    if pgrep -f "^$exe" >/dev/null; then
+        info "Quitting the running $SCHEME built here..."
+        id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist" 2>/dev/null || true)
+        [ -n "$id" ] && osascript -e "tell application id \"$id\" to quit" >/dev/null 2>&1 || true
         # Give it a moment to go away, then insist.
         for _ in $(seq 1 30); do
-            pgrep -x "$SCHEME" >/dev/null || return 0
+            pgrep -f "^$exe" >/dev/null || return 0
             /bin/sleep 0.1
         done
-        pkill -x "$SCHEME" || true
+        pkill -f "^$exe" || true
     fi
+}
+
+# Only one Irctell runs at a time (the app holds a lock in ~/.irctell); one
+# started anyway would only say so and quit. Fails with where the other is.
+refuse_if_other_running() {
+    local pid
+    # pgrep fails when nothing matches; under pipefail that would end the script.
+    pid=$(pgrep -x "$SCHEME" | head -1 || true)
+    [ -z "$pid" ] && return 0
+    die "another $SCHEME is running (process $pid): $(ps -o command= -p "$pid" | sed 's#/Contents/MacOS/.*##'). Quit it first."
 }
 
 # Unit tests. The test bundle is injected into the app, so the app launches and
@@ -611,6 +628,7 @@ case "${1:-build}" in
     run)
         build
         stop_app
+        refuse_if_other_running
         app=$(app_path)
         # Re-register with LaunchServices. Without this the Dock keeps showing
         # whatever icon it cached the first time it saw this bundle path, which

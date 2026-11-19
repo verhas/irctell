@@ -41,8 +41,9 @@ struct TranscriptView: NSViewRepresentable {
     /// Told of the logged line in the middle as the user scrolls; nil when
     /// the newest lines are shown.
     var positionChanged: (Int64?) -> Void = { _ in }
-    /// The nick a clicked word is, if it is one.
-    var nickNamed: (String) -> String? = { _ in nil }
+    /// The nick a clicked word is, if it is one. Without it, nothing in the
+    /// transcript counts as a nick.
+    var nickNamed: ((String) -> String?)?
     /// Whois from a nick's right-click menu.
     var nickWhois: (String) -> Void = { _ in }
     /// Whether the nick's menu offers a private chat: not with oneself, nor
@@ -783,7 +784,7 @@ struct TranscriptView: NSViewRepresentable {
 /// and the keystroke goes with it.
 final class TranscriptTextView: NSTextView {
     var focusInput: () -> Void = {}
-    var nickNamed: (String) -> String? = { _ in nil }
+    var nickNamed: ((String) -> String?)?
     var nickClicked: (String, Int) -> Void = { _, _ in }
     var nickWhois: (String) -> Void = { _ in }
     var mediaClicked: (TranscriptView.MediaAction) -> Void = { _ in }
@@ -843,7 +844,7 @@ final class TranscriptTextView: NSTextView {
             menu.allowsContextMenuPlugIns = false
             return menu
         }
-        guard let nick = word(at: event).flatMap(nickNamed) else {
+        guard let nick = nick(at: event) else {
             let menu = super.menu(for: event)
             menu?.allowsContextMenuPlugIns = false
             if let menu, let copy = copyItem() {
@@ -985,7 +986,7 @@ final class TranscriptTextView: NSTextView {
             lineActivated(index)
             return
         }
-        let nick = word(at: event).flatMap(nickNamed)
+        let nick = nick(at: event)
         // Returns once the button is up, after any dragging to select.
         super.mouseDown(with: event)
         let plainClick = selectedRange().length == 0
@@ -1054,21 +1055,58 @@ final class TranscriptTextView: NSTextView {
     /// Characters a nick is made of.
     private static let nickCharacters = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_[]{}\\|^`"))
 
-    /// The character under the mouse, if the mouse is on one.
+    /// The character under the mouse, if the mouse is on one: anywhere in
+    /// the height of its line, the space between the lines too, and not past
+    /// the end of the line.
     private func characterIndex(at event: NSEvent) -> Int? {
-        guard let layout = layoutManager, let container = textContainer else { return nil }
+        guard let layout = layoutManager, let container = textContainer, layout.numberOfGlyphs > 0 else { return nil }
         var point = convert(event.locationInWindow, from: nil)
         point.x -= textContainerOrigin.x
         point.y -= textContainerOrigin.y
         let glyph = layout.glyphIndex(for: point, in: container)
-        guard layout.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: container).contains(point)
-        else { return nil }
+        let line = layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+        let used = layout.lineFragmentUsedRect(forGlyphAt: glyph, effectiveRange: nil)
+        guard point.y >= line.minY, point.y < line.maxY, point.x >= used.minX, point.x < used.maxX else { return nil }
         return layout.characterIndexForGlyph(at: glyph)
     }
 
-    /// The nick-like word under the mouse, if the mouse is on text.
-    private func word(at event: NSEvent) -> String? {
-        guard let index = characterIndex(at: event) else { return nil }
+    /// The nick under the mouse: the sender, anywhere on the name a line
+    /// starts with, or a word of the text that is a nick.
+    private func nick(at event: NSEvent) -> String? {
+        guard let nickNamed, let index = characterIndex(at: event) else { return nil }
+        if let sender = sender(at: index) { return nickNamed(sender) ?? sender }
+        guard let word = word(at: index) else { return nil }
+        return Self.nickCandidates(word).lazy.compactMap(nickNamed).first
+    }
+
+    /// Who wrote the line, if the character is part of the name in front of
+    /// their message. They count even when no longer here.
+    private func sender(at index: Int) -> String? {
+        guard textStorage?.attribute(TranscriptView.linePart, at: index, effectiveRange: nil) as? String
+                == TranscriptView.LinePart.nick.rawValue,
+              let line = linesIn(NSRange(location: index, length: 1)).first, line.isActivity,
+              let sender = line.sender, !sender.isEmpty else { return nil }
+        return sender
+    }
+
+    /// What a word can be as a nick, the longest first: itself, then without
+    /// the marks around it that nicks may also contain, as in `[bob]`,
+    /// `_bob_` or `bob-`.
+    static func nickCandidates(_ word: String) -> [String] {
+        let isEdge = { (character: Character) in "-_[]{}\\|^`".contains(character) }
+        let leading = min(word.prefix(while: isEdge).count, 4)
+        let trailing = min(word.reversed().prefix(while: isEdge).count, 4)
+        var candidates: [String] = []
+        for front in 0...leading {
+            for back in 0...trailing where front + back < word.count {
+                candidates.append(String(word.dropFirst(front).dropLast(back)))
+            }
+        }
+        return candidates.sorted { $0.count > $1.count }
+    }
+
+    /// The nick-like word the character is in, if it is in one.
+    private func word(at index: Int) -> String? {
         let text = string as NSString
         func isNickCharacter(_ position: Int) -> Bool {
             guard position >= 0, position < text.length,
@@ -1099,16 +1137,15 @@ final class TranscriptTextView: NSTextView {
         return keys.contains(Int(scalar.value))
     }
 
-    /// The SwiftUI focus change lands on a later turn of the run loop; wait
-    /// for the field's editor, put the cursor at the end -- not select all of
-    /// the draft -- and hand it the keystroke.
+    /// The focus change lands on a later turn of the run loop; wait for the
+    /// input field, put the cursor at the end, and hand it the keystroke.
     private func moveFocusToInput(forwarding event: NSEvent?) {
         setSelectedRange(NSRange(location: selectedRange().location, length: 0))
         focusInput()
         guard let window else { return }
         func deliver(attempt: Int) {
             DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(10)) {
-                if let editor = window.firstResponder as? NSTextView, editor.isFieldEditor {
+                if let editor = window.firstResponder as? MessageTextView {
                     editor.setSelectedRange(NSRange(location: (editor.string as NSString).length, length: 0))
                     if let event { editor.keyDown(with: event) }
                 } else if attempt < 20 {

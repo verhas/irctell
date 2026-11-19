@@ -15,8 +15,14 @@ enum IRCTextSplitter {
 
     /// Splits at spaces where possible, never inside a character.
     static func split(_ text: String, maxBytes: Int) -> [String] {
-        var pieces: [String] = []
-        var rest = Substring(text)
+        pieces(of: Substring(text), maxBytes: maxBytes).map(String.init)
+    }
+
+    /// The messages `text` is sent as, each still pointing into the text:
+    /// the input field draws where one ends and the next starts.
+    static func pieces(of text: Substring, maxBytes: Int) -> [Substring] {
+        var pieces: [Substring] = []
+        var rest = text
         while rest.utf8.count > maxBytes {
             var bytes = 0
             var end = rest.startIndex
@@ -31,16 +37,16 @@ enum IRCTextSplitter {
             // A space right at the limit is the best place of all.
             if end < rest.endIndex, rest[end] == " " { lastSpace = end }
             if let space = lastSpace, space > rest.startIndex {
-                pieces.append(String(rest[..<space]))
+                pieces.append(rest[..<space])
                 rest = rest[rest.index(after: space)...]
             } else {
                 // One word longer than a line, or a single huge character.
                 if end == rest.startIndex { end = rest.index(after: end) }
-                pieces.append(String(rest[..<end]))
+                pieces.append(rest[..<end])
                 rest = rest[end...]
             }
         }
-        if !rest.isEmpty || pieces.isEmpty { pieces.append(String(rest)) }
+        if !rest.isEmpty || pieces.isEmpty { pieces.append(rest) }
         return pieces
     }
 }

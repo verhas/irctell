@@ -44,6 +44,30 @@ struct ChannelMember: Sendable, Hashable {
     var isAway = false
 }
 
+/// The orders the member list can show a channel's members in.
+enum MemberOrder: String, CaseIterable, Identifiable, Sendable {
+    case alphabetical, recent, voicedFirst
+
+    static let key = "memberList.order"
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .alphabetical: "Alphabetical"
+        case .recent: "Most recently written first"
+        case .voicedFirst: "Alphabetical, operators and voiced first"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .alphabetical: "textformat.abc"
+        case .recent: "clock"
+        case .voicedFirst: "megaphone"
+        }
+    }
+}
+
 /// A conversation: the server's own messages, a channel, or a private chat.
 @MainActor @Observable
 final class ChatBuffer: Identifiable {
@@ -60,6 +84,9 @@ final class ChatBuffer: Identifiable {
     var topic: String?
     /// Keyed by the case-folded nick.
     var members: [String: ChannelMember] = [:]
+    /// When each nick last wrote here, keyed by the case-folded nick: for
+    /// tab completion and the member list's most recent order.
+    var lastMessages: [String: Date] = [:]
     var isJoined = false
     /// For a private chat: whether the other one is on the network now; nil
     /// until known.
@@ -88,6 +115,8 @@ final class ChatBuffer: Identifiable {
     /// What is typed in the input field and not sent yet: kept while other
     /// conversations are looked at, and saved with the open buffers.
     var draft = ""
+    /// A paste made the draft several messages, line breaks or not.
+    var draftPastedAsSeveral = false
     /// The time the transcript went back to, from the log; nil for the
     /// newest lines. Not kept between launches.
     var historyDate: Date?

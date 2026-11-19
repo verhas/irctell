@@ -503,6 +503,10 @@ final class NetworkSession: Identifiable {
         let line = log?.append(line, networkID: id, networkName: displayName,
                                bufferName: buffer.name, bufferKind: buffer.kind) ?? line
         buffer.append(line)
+        if line.kind == .message || line.kind == .action, let sender = line.sender {
+            let key = fold(sender)
+            if (buffer.lastMessages[key] ?? .distantPast) < line.time { buffer.lastMessages[key] = line.time }
+        }
         media?.process(line, networkID: id, bufferName: buffer.name, kind: buffer.kind)
         if line.isActivity, !line.isSelf { readAloud(line, in: buffer) }
         guard line.isActivity, !line.isSelf else { return }
@@ -641,6 +645,9 @@ final class NetworkSession: Identifiable {
             stopWhoisQueue()
             performTask?.cancel()
             stopPresenceChecks()
+        case .gaveUpReconnecting(let attempts):
+            AppLog.warning("network", "\(displayName): gave up after \(attempts) reconnects")
+            addInfo("Gave up reconnecting after \(attempts) attempts. Type /reconnect to try again.", kind: .error)
         case .received(let message):
             handle(message)
         case .sent:
@@ -765,6 +772,7 @@ final class NetworkSession: Identifiable {
                 buffer.isJoined = true
                 buffer.wantsJoin = true
                 buffer.members = [:]
+                rememberWhoWrote(in: buffer)
                 if let pending = pendingSelection, isupport.caseMapping.equal(pending, channel) {
                     selectedBufferID = buffer.id
                     pendingSelection = nil
@@ -847,6 +855,7 @@ final class NetworkSession: Identifiable {
             }
             if let spoke = lastSpoke.removeValue(forKey: oldKey) { lastSpoke[fold(new)] = spoke }
             for buffer in buffers {
+                if let wrote = buffer.lastMessages.removeValue(forKey: oldKey) { buffer.lastMessages[fold(new)] = wrote }
                 if buffer.kind == .channel, var member = buffer.members.removeValue(forKey: oldKey) {
                     member.nick = new
                     buffer.members[fold(new)] = member
@@ -1684,26 +1693,113 @@ final class NetworkSession: Identifiable {
 
     // MARK: - Completion
 
-    /// Nicks in a channel that start with `prefix`, for tab completion.
+    /// Nicks in a channel that start with `prefix`, for tab completion: who
+    /// wrote here last comes first.
     func completions(for prefix: String, in buffer: ChatBuffer) -> [String] {
         let folded = fold(prefix)
         var candidates = buffer.members.values.map(\.nick)
         if buffer.kind == .query { candidates.append(buffer.name) }
         return candidates
             .filter { fold($0).hasPrefix(folded) && !isMe($0) }
-            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+            .sorted { wroteLater($0, than: $1, in: buffer) }
     }
 
-    /// The members sorted the way the nick list shows them: by rank, then
-    /// name. A private chat has two: us, and the other one.
-    func sortedMembers(of buffer: ChatBuffer) -> [ChannelMember] {
+    /// Whether the first nick wrote in the conversation after the second;
+    /// those who have not are at the end, by name.
+    private func wroteLater(_ lhs: String, than rhs: String, in buffer: ChatBuffer) -> Bool {
+        let l = buffer.lastMessages[fold(lhs)] ?? .distantPast
+        let r = buffer.lastMessages[fold(rhs)] ?? .distantPast
+        if l != r { return l > r }
+        return lhs.localizedStandardCompare(rhs) == .orderedAscending
+    }
+
+    /// Who wrote in the channel lately, from the log, so the order by recent
+    /// messages means something right after launch too.
+    private func rememberWhoWrote(in buffer: ChatBuffer) {
+        guard buffer.lastMessages.isEmpty, let log else { return }
+        let scope = LogStore.Scope.buffer(network: id, key: LogStore.key(for: buffer.name, kind: buffer.kind))
+        for line in log.lines(in: scope, limit: NetworkSession.linesReadForRecentWriters)
+        where (line.kind == .message || line.kind == .action) && !line.isIgnored {
+            guard let sender = line.sender else { continue }
+            let key = fold(sender)
+            if (buffer.lastMessages[key] ?? .distantPast) < line.time { buffer.lastMessages[key] = line.time }
+        }
+    }
+
+    private static let linesReadForRecentWriters = 2000
+
+    /// The members sorted the way the nick list shows them; by default, by
+    /// rank and then name. A private chat has two: us, and the other one.
+    func sortedMembers(of buffer: ChatBuffer, order: MemberOrder = .voicedFirst) -> [ChannelMember] {
         if buffer.kind == .query {
             return [ChannelMember(nick: nick), ChannelMember(nick: buffer.name)]
         }
         return buffer.members.values.sorted { lhs, rhs in
-            let l = isupport.rank(ofPrefixes: lhs.prefixes), r = isupport.rank(ofPrefixes: rhs.prefixes)
-            if l != r { return l < r }
-            return lhs.nick.localizedStandardCompare(rhs.nick) == .orderedAscending
+            switch order {
+            case .alphabetical:
+                return lhs.nick.localizedStandardCompare(rhs.nick) == .orderedAscending
+            case .recent:
+                return wroteLater(lhs.nick, than: rhs.nick, in: buffer)
+            case .voicedFirst:
+                let l = isupport.rank(ofPrefixes: lhs.prefixes), r = isupport.rank(ofPrefixes: rhs.prefixes)
+                if l != r { return l < r }
+                return lhs.nick.localizedStandardCompare(rhs.nick) == .orderedAscending
+            }
+        }
+    }
+
+    /// The conversation's member with this nick, as they write it, compared
+    /// the way the network compares nicks.
+    func memberNick(_ word: String, in buffer: ChatBuffer) -> String? {
+        if buffer.kind == .query {
+            return [nick, buffer.name].first { fold($0) == fold(word) }
+        }
+        return buffer.members[fold(word)]?.nick
+    }
+
+    // MARK: - What a draft is sent as
+
+    /// Where in the draft each message after the first starts, as UTF-16
+    /// offsets: a new line starts one, and so does each piece of a text too
+    /// long for one message. Goes the way `submit` and `sendText` do.
+    func messageStarts(in draft: String, for buffer: ChatBuffer) -> [Int] {
+        var starts: [Int] = []
+        let lines = draft.split(whereSeparator: \.isNewline)
+        for line in lines where !line.isEmpty {
+            for piece in messagePieces(of: line, in: buffer) {
+                starts.append(draft.utf16.distance(from: draft.startIndex, to: piece.startIndex))
+            }
+        }
+        // A line break at the end: the next message is being started.
+        if !lines.isEmpty, draft.last?.isNewline == true { starts.append(draft.utf16.count) }
+        return Array(starts.dropFirst())
+    }
+
+    /// The messages one line of input is sent as; the whole line for a
+    /// command that does not send text.
+    private func messagePieces(of line: Substring, in buffer: ChatBuffer) -> [Substring] {
+        let plain = { (text: Substring, command: String, target: String, reserved: Int) -> [Substring] in
+            let limit = IRCTextSplitter.maximumTextBytes(command: command, target: target, nick: self.nick) - reserved
+            return IRCTextSplitter.pieces(of: text, maxBytes: limit)
+        }
+        if line.hasPrefix("//") { return plain(line.dropFirst(), "PRIVMSG", buffer.name, 0) }
+        guard line.hasPrefix("/") else { return plain(line, "PRIVMSG", buffer.name, 0) }
+        let words = line.dropFirst().split(separator: " ", maxSplits: 2)
+        guard let verb = words.first?.lowercased() else { return [line] }
+        /// The text from the `index`th word on.
+        func text(from index: Int) -> Substring? {
+            guard words.count > index else { return nil }
+            return line[words[index].startIndex...].drop { $0 == " " }
+        }
+        switch verb {
+        case "me", "action":
+            guard let body = text(from: 1) else { return [line] }
+            return plain(body, "PRIVMSG", buffer.name, 9)
+        case "msg", "privmsg", "notice":
+            guard words.count == 3, let body = text(from: 2) else { return [line] }
+            return plain(body, verb == "notice" ? "NOTICE" : "PRIVMSG", String(words[1]), 0)
+        default:
+            return [line]
         }
     }
 }

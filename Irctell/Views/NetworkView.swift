@@ -126,9 +126,10 @@ private struct BufferRow: View {
     var body: some View {
         HStack {
             Label {
-                Text(buffer.kind == .server ? session.displayName : isMemos ? "Memos" : buffer.name)
+                Text(title)
                     .lineLimit(1)
                     .fontWeight(buffer.unreadCount > 0 ? .semibold : .regular)
+                    .help(buffer.kind == .channel ? buffer.name : "")
             } icon: {
                 Image(systemName: icon)
             }
@@ -221,6 +222,20 @@ private struct BufferRow: View {
     }
 
     private var isMemos: Bool { session.isMemos(buffer) }
+
+    private var title: String {
+        switch buffer.kind {
+        case .server: session.displayName
+        case .channel: Self.channelTitle(buffer.name)
+        case .query: isMemos ? "Memos" : buffer.name
+        }
+    }
+
+    /// The # icon in front already says channel: one # less in the name.
+    /// Other prefixes (&, +, !) stay, and ##python shows as #python.
+    static func channelTitle(_ name: String) -> String {
+        name.hasPrefix("#") && name.count > 1 ? String(name.dropFirst()) : name
+    }
 
     private var level: NotificationLevel {
         app.notificationLevel(network: session.id, buffer: buffer.name, kind: buffer.kind)
@@ -455,8 +470,33 @@ struct MemberList: View {
         .sheet(item: $aliasChoice) { AliasPicker(nick: $0.nick, log: session.log) }
     }
 
+    private var order: MemberOrder {
+        SettingsStore.shared.string(forKey: MemberOrder.key).flatMap(MemberOrder.init) ?? .voicedFirst
+    }
+
+    /// One small button for each order, the one in use in the accent colour.
+    private var orderButtons: some View {
+        HStack(spacing: 2) {
+            ForEach(MemberOrder.allCases) { choice in
+                Button {
+                    SettingsStore.shared.set(choice.rawValue, forKey: MemberOrder.key)
+                } label: {
+                    Image(systemName: choice.symbol)
+                        .foregroundStyle(order == choice ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                        .frame(width: 16, height: 14)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .help(choice.title)
+                .accessibilityLabel(choice.title)
+                .accessibilityAddTraits(order == choice ? .isSelected : [])
+            }
+        }
+        .fixedSize()
+    }
+
     private var members: some View {
-        let all = session.sortedMembers(of: buffer)
+        let all = session.sortedMembers(of: buffer, order: order)
         let filter = buffer.memberFilter
         let members = filter.isEmpty ? all : all.filter { $0.nick.localizedCaseInsensitiveContains(filter) }
         return List(selection: $buffer.selectedMembers) {
@@ -500,11 +540,14 @@ struct MemberList: View {
                 SearchField(prompt: "Filter", text: $buffer.memberFilter)
                 HStack {
                     Text(filter.isEmpty ? "\(all.count) members" : "\(members.count) of \(all.count) members")
-                    Spacer()
+                        .lineLimit(1)
+                    Spacer(minLength: 2)
                     if !session.whoisQueue.isEmpty {
                         Text("WHOIS: \(session.whoisQueue.count) to go")
+                            .lineLimit(1)
                             .help("WHOIS requests are sent one at a time, so the server does not see a flood.")
                     }
+                    if buffer.kind == .channel { orderButtons }
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)

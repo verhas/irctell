@@ -6,7 +6,8 @@ struct ConversationView: View {
     let session: NetworkSession
     @Bindable var buffer: ChatBuffer
     @Environment(\.openWindow) private var openWindow
-    @FocusState private var isInputFocused: Bool
+    /// A new value sends the keyboard focus to the input field.
+    @State private var inputFocusRequest = 0
     @Environment(\.ignoreRules) private var ignoreRules
     @State private var aliasChoice: AliasChoice?
     /// The lines from the log; nil without a log, when the lines since
@@ -41,9 +42,7 @@ struct ConversationView: View {
                            nickNamed: { word in
                                // A member, or someone who spoke here lately
                                // and is gone.
-                               session.sortedMembers(of: buffer).first {
-                                   $0.nick.caseInsensitiveCompare(word) == .orderedSame
-                               }?.nick ?? lines.last {
+                               session.memberNick(word, in: buffer) ?? lines.last {
                                    $0.isActivity && $0.sender?.caseInsensitiveCompare(word) == .orderedSame
                                }?.sender
                            },
@@ -75,10 +74,7 @@ struct ConversationView: View {
                                    buffer.selectedMembers = [nick]
                                }
                            }) {
-                // The field may still count as focused while the transcript
-                // took the click; clearing first makes setting it a change.
-                isInputFocused = false
-                Task { @MainActor in isInputFocused = true }
+                inputFocusRequest += 1
             }
             .overlay {
                 if !buffer.search.isEmpty && lines.isEmpty {
@@ -87,7 +83,7 @@ struct ConversationView: View {
                 }
             }
             Divider()
-            InputBar(session: session, buffer: buffer, isFocused: $isInputFocused)
+            InputBar(session: session, buffer: buffer, focusRequest: $inputFocusRequest)
         }
         .task(id: FeedKey(scope: scope, search: buffer.search, floor: buffer.clearedUpTo, ignores: ignoreRules,
                           since: buffer.historyDate, revision: session.log?.revision.value ?? 0)) {
@@ -294,12 +290,16 @@ private struct InputBar: View {
     let session: NetworkSession
     @Bindable var buffer: ChatBuffer
 
-    var isFocused: FocusState<Bool>.Binding
+    @Binding var focusRequest: Int
     /// Position in the session's input history while browsing it with the
     /// arrow keys; nil when editing a fresh line.
     @State private var historyIndex: Int?
+    /// What was being typed when browsing the history began.
+    @State private var typedDraft = ""
     @State private var completion: Completion?
     @State private var showsFormats = false
+    /// The height the text wants, within the limit of lines.
+    @State private var editorHeight: CGFloat = 17
 
     /// A tab completion in progress, so pressing Tab again cycles through
     /// the other matching nicks.
@@ -326,25 +326,39 @@ private struct InputBar: View {
     }
 
     private var field: some View {
-        HStack(spacing: 8) {
+        HStack(alignment: .top, spacing: 8) {
             Text(session.nick)
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(.secondary)
-            TextField(shownSuggestion ?? placeholder, text: $buffer.draft)
-                .textFieldStyle(.plain)
-                .focused(isFocused)
-                .onSubmit(submit)
-                // With ⌘ or ⌥ these switch conversations, from the menu.
-                .onKeyPress(keys: [.upArrow]) { isPlain($0) ? browseHistory(-1) : .ignored }
-                .onKeyPress(keys: [.downArrow]) { isPlain($0) ? browseHistory(1) : .ignored }
-                .onKeyPress(keys: [.tab]) { $0.modifiers.contains(.option) ? .ignored : complete() }
-                .onKeyPress(phases: .down, action: formatKey)
+                .padding(.top, 1)
+            MessageEditor(text: $buffer.draft,
+                          messageStarts: { session.messageStarts(in: $0, for: buffer) },
+                          maxLines: maxLines,
+                          focusRequest: focusRequest,
+                          heightChanged: { editorHeight = $0 },
+                          submit: submit,
+                          enterSends: enterSends,
+                          pastedAsSeveral: { buffer.draftPastedAsSeveral = true },
+                          complete: complete,
+                          browse: browseHistory,
+                          formatKey: formatKey)
                 .onChange(of: buffer.draft) {
                     if buffer.draft != completion?.result { completion = nil }
+                    if session.messageStarts(in: buffer.draft, for: buffer).isEmpty {
+                        buffer.draftPastedAsSeveral = false
+                    }
                 }
-                // Long text scrolls inside the field, never under the buttons.
+                .frame(height: editorHeight)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .clipped()
+                .overlay(alignment: .topLeading) {
+                    if buffer.draft.isEmpty {
+                        Text(shownSuggestion ?? placeholder)
+                            .foregroundStyle(.placeholder)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .allowsHitTesting(false)
+                    }
+                }
             Button {
                 showsFormats.toggle()
             } label: {
@@ -357,11 +371,19 @@ private struct InputBar: View {
             .popover(isPresented: $showsFormats, arrowEdge: .top) {
                 FormatPalette { code in
                     buffer.draft += code
-                    isFocused.wrappedValue = true
+                    focusRequest += 1
                 }
             }
-            EmojiButton { isFocused.wrappedValue = true }
+            EmojiButton { focusRequest += 1 }
                 .fixedSize()
+            Button(action: submit) {
+                Image(systemName: "paperplane")
+            }
+            .buttonStyle(.borderless)
+            .fixedSize()
+            .layoutPriority(1)
+            .disabled(!buffer.draft.contains { !$0.isWhitespace })
+            .help("Send")
         }
         .overlay(alignment: .trailing) {
             if shownSuggestion != nil {
@@ -371,14 +393,13 @@ private struct InputBar: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(.quaternary, in: Capsule())
-                    .padding(.trailing, 64)
+                    .padding(.trailing, 90)
                     .help("A reply suggested by Apple Intelligence, on this Mac: Tab puts it in the field, to edit or send")
                     .allowsHitTesting(true)
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
-        .onAppear { isFocused.wrappedValue = true }
         .task(id: SuggestionKey(last: lastHeard.map(ReplySuggester.key), isEmpty: buffer.draft.isEmpty,
                                 enabled: ReplySuggester.shared.isEnabled)) {
             await suggestReply()
@@ -422,21 +443,32 @@ private struct InputBar: View {
         }
     }
 
+    private var maxLines: Int {
+        let lines = SettingsStore.shared.object(forKey: InputSettings.maxLines) as? Int ?? InputSettings.defaultMaxLines
+        return min(max(lines, InputSettings.lineRange.lowerBound), InputSettings.lineRange.upperBound)
+    }
+
     private func submit() {
         let text = buffer.draft
         buffer.draft = ""
+        buffer.draftPastedAsSeveral = false
         historyIndex = nil
+        typedDraft = ""
         completion = nil
         session.submit(text, in: buffer)
-        isFocused.wrappedValue = true
+        focusRequest += 1
+    }
+
+    private func enterSends() -> Bool {
+        let mode = SettingsStore.shared.string(forKey: InputSettings.enterKey).flatMap(EnterKeyMode.init) ?? .sends
+        return mode.sends(draft: buffer.draft, pastedAsSeveral: buffer.draftPastedAsSeveral)
     }
 
     /// mIRC's keys: ⌃B bold, ⌃I italics, ⌃U underline, ⌃O plain, ⌃K the
     /// colours. The codes go at the end, where typing goes on.
-    private func formatKey(_ press: KeyPress) -> KeyPress.Result {
-        guard press.modifiers.intersection([.command, .option, .control, .shift]) == .control else { return .ignored }
+    private func formatKey(_ pressed: String) -> Bool {
         // With ⌃ the character may come as the control code itself.
-        let key = press.key.character.lowercased()
+        let key = pressed.lowercased()
         let code: FormatCode? = switch key {
         case "b", "\u{02}": .bold
         case "i", "\u{09}": .italic
@@ -446,61 +478,60 @@ private struct InputBar: View {
         }
         if let code {
             buffer.draft += code.rawValue
-            return .handled
+            return true
         }
         if key == "k" || key == "\u{0b}" {
             showsFormats = true
-            return .handled
+            return true
         }
-        return .ignored
+        return false
     }
 
-    /// No ⌘, ⌥, ⌃ or ⇧. Arrow keys always come with the function-key and
-    /// keypad flags, which do not count.
-    private func isPlain(_ press: KeyPress) -> Bool {
-        press.modifiers.isDisjoint(with: [.command, .option, .control, .shift])
-    }
-
-    private func browseHistory(_ step: Int) -> KeyPress.Result {
+    /// ↑ and ↓ move through the history at the first and last line of the
+    /// text, and all the time while a line from the history is shown as it
+    /// was; otherwise they move the caret. What was being typed comes back
+    /// after the newest line.
+    private func browseHistory(_ step: Int, atEdge: Bool) -> Bool {
         let history = session.inputHistory
-        guard !history.isEmpty else { return .ignored }
-        let current = historyIndex ?? history.count
-        let next = current + step
+        guard !history.isEmpty, step < 0 || historyIndex != nil else { return false }
+        let unchanged = historyIndex.map { history.indices.contains($0) && history[$0] == buffer.draft } ?? false
+        guard atEdge || unchanged else { return false }
+        if historyIndex == nil { typedDraft = buffer.draft }
+        let next = (historyIndex ?? history.count) + step
         if next >= history.count {
             historyIndex = nil
-            buffer.draft = ""
+            buffer.draft = typedDraft
+            typedDraft = ""
         } else if next >= 0 {
             historyIndex = next
             buffer.draft = history[next]
         }
-        return .handled
+        return true
     }
 
-    /// Completes the word before the cursor -- the end of the line, as the
-    /// field does not report the cursor -- to a member's nick.
-    private func complete() -> KeyPress.Result {
+    /// Completes the word at the end of the text to a member's nick.
+    private func complete() {
         // An empty field: Tab takes the suggested reply.
         if buffer.draft.isEmpty, let suggestion = buffer.suggestion {
             buffer.draft = suggestion
             buffer.suggestion = nil
-            return .handled
+            return
         }
         if var current = completion, buffer.draft == current.result {
             current.index = (current.index + 1) % current.candidates.count
             current.result = completed(stem: current.stem, with: current.candidates[current.index])
             completion = current
             buffer.draft = current.result
-            return .handled
+            return
         }
-        let word = buffer.draft.split(separator: " ", omittingEmptySubsequences: false).last.map(String.init) ?? ""
-        guard !word.isEmpty else { return .handled }
+        let word = String(buffer.draft.reversed().prefix { !$0.isWhitespace }.reversed())
+        guard !word.isEmpty else { return }
         let stem = String(buffer.draft.dropLast(word.count))
         let candidates = session.completions(for: word, in: buffer)
-        guard let first = candidates.first else { return .handled }
+        guard let first = candidates.first else { return }
         let result = completed(stem: stem, with: first)
         completion = Completion(stem: stem, candidates: candidates, index: 0, result: result)
         buffer.draft = result
-        return .handled
     }
 
     /// A nick at the start of the line is addressed: `nick: `.
